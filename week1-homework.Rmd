@@ -1,0 +1,76 @@
+---
+title: "week1-homework"
+output: html_document
+date: "2026-10-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Exam
+
+Each week we will provide a short task to test your knowledge, these should be used to guide your study for the final exam.
+
+The task is to join some non spatial data to some spatial data.
+
+1. Go to the New Zealand spatial data portal and download the file Territorial Authority 2018 (generalised), these are city or district councils. Make sure it’s the Territorial Authority 2018 data not SA1.
+
+2. Go to the Stats NZ website and download the Statistical area 1 dataset for 2018 for the whole of New Zealand. Download the excel file this week, not the .csv.
+
+3. Unzip the downloaded census file and open 2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20, you will see a tab for Territorial authority. **Join the 2018 paid employee field to the spatial data and make a basic map. Hint, you may need to make a new .csv file from the data.**
+
+
+# Load data
+
+```{r}
+library(tidyverse)
+mycsv <- read_csv("homework1_data/edited-2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20.csv")
+
+spec(mycsv)
+
+library(sf)
+# my data is within a homework1_data folder.
+shape <- st_read("homework1_data/statsnz-territorial-authority-2018-generalised-SHP/territorial-authority-2018-generalised.shp")
+```
+
+```{r}
+# reproject Coordinate 
+shape_nztm <- st_transform(shape, 2193)   # EPSG:2193 = NZGD2000 / NZ Transverse Mercator
+
+summary(shape_nztm)
+plot(shape_nztm)
+
+
+# That plots everything in the shapefile (all the attributes) if you just wanted the geometry (outline of the shape) you could use…
+
+library(sf)
+shape_nztm %>% 
+  st_geometry() %>%
+  plot()
+```
+# Join data
+```{r}
+shape_nztm2 <- shape_nztm%>%
+  merge(.,
+        mycsv,
+        by.x="TA2018_V1_",
+        by.y="Area_Code")
+
+shape_nztm%>%
+  head(., n=10)
+
+'Length:'
+nrow(shape_nztm2)
+```
+
+## Make thematic map (or a qtm)
+```{r}
+library(tmap)
+tmap_mode("plot")
+
+# change the fill to your column name if different
+shape_nztm2 %>%
+  qtm(.,fill = "2018_paid_employee")
+```
