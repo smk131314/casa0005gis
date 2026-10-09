@@ -1,0 +1,79 @@
+---
+title: "Week1-practical"
+output: html_document
+date: "2026-10-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(tidyverse)
+mycsv <- read_csv("prac1_data/fly_tipping_borough_edit.csv", skip=1)
+```
+```{r}
+library(sf)
+# my data is within a prac1_data folder.
+shape <- st_read("prac1_data/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
+```
+
+```{r}
+summary(shape)
+```
+
+```{r}
+plot(shape)
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+shape %>% 
+  st_geometry() %>%
+  plot()
+
+shape2 <- shape%>%
+  merge(.,
+        mycsv,
+        by.x="GSS_CODE", 
+        by.y="Row Labels")
+
+shape%>%
+  head(., n=10)
+
+library(tmap)
+
+tmap_mode("plot")
+# change the fill to your column name if different
+shape2 %>%
+  qtm(.,fill = "2011-12")
+```
+# Export
+```{r}
+shape%>% st_write(.,
+  "prac1_data/flytipping.gpkg",
+  layer = "london_boroughs_fly_tipping",
+  delete_dsn = TRUE
+)
+```
+```{R}
+library(readr)
+library(RSQLite)
+
+con <- dbConnect(RSQLite::SQLite(),dbname="prac1_data/flytipping.gpkg")
+
+con %>%
+  dbListTables()
+
+con %>%
+  dbWriteTable(.,
+               "original_csv",
+               mycsv,
+               overwrite=TRUE)
+
+con %>% 
+  dbDisconnect()
+```
