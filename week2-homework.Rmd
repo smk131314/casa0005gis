@@ -1,0 +1,29 @@
+---
+title: "week2-homework"
+output: html_document
+---
+
+# Exam
+The task is to join some non spatial data to some spatial data and wrangle it.
+
+You need **calculate the average percent of science students (in all) grades per county meeting the required standards and produce a map to show where the Country averages are above or below the State of Washington average.**
+
+**Tip** do not try and pull out the number from the % symbol, you have the count of students who expected to test and the count who met standard, so you can calculate the percentage.
+
+
+## Clean data
+
+```{r}
+assessmentData <- read_csv('./week2_data/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv',
+                           locale = locale(encoding = "latin1"))
+
+Datatypelist <- assessmentData %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_variables", 
+               values_to="Variable_class")
+
+Datatypelist
+
+```
+
