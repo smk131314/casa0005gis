@@ -8,22 +8,206 @@ The task is to join some non spatial data to some spatial data and wrangle it.
 
 You need **calculate the average percent of science students (in all) grades per county meeting the required standards and produce a map to show where the Country averages are above or below the State of Washington average.**
 
-**Tip** do not try and pull out the number from the % symbol, you have the count of students who expected to test and the count who met standard, so you can calculate the percentage.
+**Tip** do not try and pull out the number from the % symbol, you have the **count** of students who expected to test and the count who met standard, so you can calculate the percentage.
 
 
 ## Clean data
 
 ```{r}
-assessmentData <- read_csv('./week2_data/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv',
-                           locale = locale(encoding = "latin1"))
+library(readr)
+library(tidyverse)
+# skipping '', 'NA', 'NULL' entries : To avoid reading in our numeric data as text
+assessmentData <- read_csv('./week2_data/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv', 
+                           locale = locale(encoding = "latin1"),
+                           na = c("", "NA", "NULL"))
 
-Datatypelist <- assessmentData %>% 
-  summarise_all(class) %>%
-  pivot_longer(everything(), 
-               names_to="All_variables", 
-               values_to="Variable_class")
+spec(assessmentData)
+# Check head
+head(assessmentData)
+# Check the data type
+class(assessmentData)
 
-Datatypelist
+
+# Check datatypelist
+# Datatypelist <- assessmentData %>%
+#   summarise_all(class) %>%
+#   pivot_longer(everything(),
+#                names_to="All_variables",
+#                values_to="Variable_class")
+# 
+# Datatypelist
+
+```
+
+# Data manipulation
+1.1 Selecting columns
+1.2 Group by county
+1.3 new column with average percentage 
+1.4 new column with average of State of Washington
+1.5 new column with above or below average 
+
+```{r}
+library(dplyr)
+
+# Selecting columns & drop_na
+# filter TestSubject = Science, GradeLevel = "All Grades", StudentGroup = 'All students', OrganizationLevel = 'School'
+scienceStudentsCountData <- assessmentData %>%
+  dplyr::select(contains("County"),
+                contains('TestSubject'),
+                contains('GradeLevel'),
+                contains('StudentGroup'),
+                contains('OrganizationLevel'),
+                contains("Count of Students Expected to Test"),
+                contains("CountMetStandard")) %>%
+  filter(TestSubject       == "Science",
+         GradeLevel        == "All Grades",
+         StudentGroup      == "All Students") %>%
+  drop_na(`Count of Students Expected to Test`, CountMetStandard)
+
+head(scienceStudentsCountData)
+# To confirm OrganizationLevel is mixed in
+# scienceStudentsCountData %>% count(OrganizationLevel)
+
+
+# group_by and summarise to show one row per county with the totals
+# filter out 'multiple' row as it is the state-level summary row.
+countySciTotals <- scienceStudentsCountData  %>%
+  filter(County != "Multiple",
+         OrganizationLevel == "School") %>%
+  group_by(County) %>%
+  summarise(
+    TotalExpectedToTest = sum(`Count of Students Expected to Test`, na.rm = TRUE),
+    TotalMetStandard    = sum(CountMetStandard, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(pct_met = TotalMetStandard / TotalExpectedToTest * 100) # Calculate the percentage
+
+countySciTotals
+
+# filter out 'multiple' row as it is the state-level summary row.
+# The "Multiple" row
+WashingtonRow <- scienceStudentsCountData %>%
+  filter(County == "Multiple",
+         OrganizationLevel == 'State') %>%
+  summarise(
+    County = 'Multiple',
+    TotalExpectedToTest = sum(`Count of Students Expected to Test`, na.rm = TRUE),
+    TotalMetStandard    = sum(CountMetStandard, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(pct_met = TotalMetStandard / TotalExpectedToTest * 100) # Calculate the percentage
+WashingtonRow
+
+```
+
+
+# TODO: This chunk can be skipped
+# Comparison between 'multiple' row and actual sum.
+```{r}
+countySum2 <- countySciTotals %>%
+  summarise(
+    TotalExpectedToTest = sum(TotalExpectedToTest),
+    TotalMetStandard    = sum(TotalMetStandard)
+  ) %>%
+  mutate(County = "Sum of 39 counties")
+
+# Stack them and add the differences
+comparison <- bind_rows(WashingtonRow, countySum2) %>%
+  select(County, TotalExpectedToTest, TotalMetStandard)
+
+comparison
+
+comparison %>%
+  summarise(
+    diff_Expected = diff(TotalExpectedToTest),
+    diff_Met      = diff(TotalMetStandard),
+    ratio_Expected = TotalExpectedToTest[2] / TotalExpectedToTest[1]
+  )
+
+# Why there is the diffence?
+sci <- assessmentData %>%
+  filter(TestSubject == "Science", GradeLevel == "All Grades",
+         StudentGroup == "All Students", OrganizationLevel == "School")
+
+# 1. School rows lost to suppression / NA
+sci %>% filter(is.na(`Count of Students Expected to Test`) | is.na(CountMetStandard)) %>%
+  nrow()
+
+# 2. Students in schools labelled "Multiple"
+sci %>% filter(County == "Multiple") %>%
+  summarise(expected = sum(`Count of Students Expected to Test`, na.rm = TRUE))
+```
+
+# 2. Calculate the Washington average and compare
+```{r}
+stateAvg <- sum(countySciTotals$TotalMetStandard) / sum(countySciTotals$TotalExpectedToTest) * 100
+stateAvg
+# WashingtonRow might not be correct because of suppressed small groups.
+
+countySciTotals <- countySciTotals %>%
+  mutate(vs_state = if_else(pct_met > stateAvg, "Above state average",
+                                                "Below state average"))
+
+countySciTotals
+```
+
+# 3. Join to the county boundaries and map
+```{r}
+library(tmap)
+library(tmaptools)
+library(sf)
+
+washingtonMap <- st_read("./week2_data/Week 2 Homework boundaries-20261015/Washington_Counties_with_Natural_Shoreline___washsh_area.shp")
+names(washingtonMap)   # find the column holding the county name -> 'COUNTY'
+
+# plot it
+# qtm(washingtonMap)
+
+library(janitor)
+washingtonMap <- clean_names(washingtonMap) # convert  column names
+names(washingtonMap)
+
+# Join (left-join)
+mapData <- washingtonMap %>%
+  mutate(county = str_to_title(countylabe)) %>%
+  left_join(countySciTotals, c("county" = "County"))
+
+# simple map
+qtm(mapData, 
+    fill = "pct_met")
+
+# Map to show whether it is below or above the average
+# ggplot(mapData) +
+#   geom_sf(aes(fill = vs_state), colour = "white", linewidth = 0.2) +
+#   scale_fill_manual(values = c("Above state average" = "#2c7bb6",
+#                                "Below state average" = "#d7191c"),
+#                     na.value = "grey80") +
+#   labs(title = "Science: % of students meeting standard, 2018–19",
+#        subtitle = paste0("Compared with the Washington average of ",
+#                          round(stateAvg, 1), "%"),
+#        fill = NULL) +
+#   theme_void()
+
+
+# Map shows the gap in percentage points
+# Create a column with the difference from the state average, then fill the map with a diverging colour scale centred on zero:
+mapData <- mapData %>%
+  mutate(diff_from_state = pct_met - stateAvg)
+
+# Make the scale symmetric so equal distances above/below get equal colour strength
+maxDiff <- max(abs(mapData$diff_from_state), na.rm = TRUE)
+
+ggplot(mapData) +
+  geom_sf(aes(fill = diff_from_state), colour = "white", linewidth = 0.2) +
+  scale_fill_gradient2(low = "#d7191c", mid = "#f7f7f7", high = "#2c7bb6", # Above blue, below red
+                       midpoint = 0,
+                       limits = c(-maxDiff, maxDiff),
+                       labels = function(x) paste0(ifelse(x > 0, "+", ""), x, " pts"),
+                       na.value = "grey80",
+                       name = "Difference from\nstate average") +
+  labs(title = "Science: % of students meeting standard by county, 2018–19",
+       subtitle = paste0("Washington average: ", round(stateAvg, 1), "%")) +
+  theme_void()
 
 ```
 
