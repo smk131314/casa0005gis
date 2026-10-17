@@ -176,6 +176,9 @@ mapData <- washingtonMap %>%
 qtm(mapData, 
     fill = "pct_met")
 
+qtm(mapData, 
+    fill = "vs_state")
+
 # Map to show whether it is below or above the average
 # ggplot(mapData) +
 #   geom_sf(aes(fill = vs_state), colour = "white", linewidth = 0.2) +
