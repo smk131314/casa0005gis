@@ -91,13 +91,13 @@ x <- mycsv$'2018_paid_employee'
 par(mfrow = c(1, 2))
 hist(x, breaks = 30, col = "steelblue",
      main = "Paid employees (raw)", xlab = "Paid employees")
-hist(log10(x), breaks = 20, col = "darkorange",
-     main = "Paid employees (log10)", xlab = "log10(paid employees)")
+hist(log(x), breaks = 20, col = "darkorange",
+     main = "Paid employees (ln)", xlab = "log(paid employees)")
 par(mfrow = c(1, 1))
 
 library(dplyr)
 # Create log data column
-mycsv$paid_employment_log <- log10(mycsv$'2018_paid_employee')
+mycsv$paid_employment_log <- log(mycsv$'2018_paid_employee')
 class(mycsv)
 names(mycsv)
 
