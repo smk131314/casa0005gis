@@ -39,6 +39,9 @@ shape <- st_read("homework1_data/statsnz-territorial-authority-2018-generalised-
 # reproject Coordinate 
 shape_nztm <- st_transform(shape, 2193)   # EPSG:2193 = NZGD2000 / NZ Transverse Mercator
 
+shape_simple <- st_simplify(shape_nztm,, dTolerance = 1000) # dTolerance **
+plot(shape_simple)
+
 summary(shape_nztm)
 plot(shape_nztm)
 
@@ -74,3 +77,37 @@ tmap_mode("plot")
 shape_nztm2 %>%
   qtm(.,fill = "2018_paid_employee")
 ```
+
+
+## Optional(log distribution) : more detailed distribution
+
+```{r}
+library(tmap)
+library(tidyverse)
+
+x <- mycsv$'2018_paid_employee'
+
+# Look at the distribution (using Histogram)
+par(mfrow = c(1, 2))
+hist(x, breaks = 30, col = "steelblue",
+     main = "Paid employees (raw)", xlab = "Paid employees")
+hist(log10(x), breaks = 20, col = "darkorange",
+     main = "Paid employees (log10)", xlab = "log10(paid employees)")
+par(mfrow = c(1, 1))
+
+library(dplyr)
+# Create log data column
+mycsv$paid_employment_log <- log10(mycsv$'2018_paid_employee')
+class(mycsv)
+names(mycsv)
+
+shape_nztm2 <- shape_nztm%>%
+  merge(.,
+        mycsv,
+        by.x="TA2018_V1_",
+        by.y="Area_Code")
+
+shape_nztm2 %>%
+  qtm(.,fill = 'paid_employment_log')
+```
+
