@@ -1,0 +1,16 @@
+---
+title: "week3-homework"
+output: html_document
+---
+
+Exam
+
+Each week we will provide a short task to test your knowledge, these should be used to guide your study for the final exam.
+
+The task is to manipulate some raster data and produce some descriptive statistics. Climatic models fed into the latest Intergovernmental Panel on Climate Change (IPCC), the models are divided into Shared Socioeconomic Pathways known as SSPs, ranging from SSP1 (lots of mitigation and adaption) to SSP5 (fossil fuel development). The Carbon Brief explainer has more information on the scenarios.
+
+For any country in the World produce descriptive statistics that show the difference in maximum temperature for key cities between SSP1 and SSP5 for the years 2081-2100, using any model and resolution.
+
+WorldClim future projections
+Country outlines
+World city points
