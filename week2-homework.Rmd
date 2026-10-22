@@ -164,7 +164,7 @@ names(washingtonMap)   # find the column holding the county name -> 'COUNTY'
 # qtm(washingtonMap)
 
 library(janitor)
-washingtonMap <- clean_names(washingtonMap) # convert  column names
+washingtonMap <- clean_names(washingtonMap) # convert column names
 names(washingtonMap)
 
 # Join (left-join)
