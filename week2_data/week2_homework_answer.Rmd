@@ -14,11 +14,11 @@ library(tmap)
 
 ```{r}
 # read
-report <- read_csv(here::here("homework_2", 
-                   "Report_Card_Assessment_Data_2018-19_School_Year.csv"),
+report <- read_csv(here::here("week2_data", 
+                   "Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv"),
                               na= "NULL")
 
-shape <- st_read(here::here("homework_2",                          "Washington_Counties_with_Natural_Shoreline___washsh_area",                           "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
+shape <- st_read(here::here("week2_data/Week 2 Homework boundaries-20261015",                                                     "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
 ```
 
 
@@ -61,6 +61,7 @@ county_only <- report %>%
   summarise(total_county_met_standard=sum(count_met_standard), 
             total_county_to_test=sum(count_of_students_expected_to_test))%>%
   mutate(percent_met_per_county=(total_county_met_standard/total_county_to_test)*100)
+
 
 ```
 

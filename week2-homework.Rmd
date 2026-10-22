@@ -60,8 +60,8 @@ scienceStudentsCountData <- assessmentData %>%
                 contains("Count of Students Expected to Test"),
                 contains("CountMetStandard")) %>%
   filter(TestSubject       == "Science",
-         GradeLevel        == "All Grades",
-         StudentGroup      == "All Students") %>%
+         GradeLevel        == "All Grades") %>%
+         # StudentGroup      == "All Students"
   drop_na(`Count of Students Expected to Test`, CountMetStandard)
 
 head(scienceStudentsCountData)
@@ -140,13 +140,21 @@ sci %>% filter(County == "Multiple") %>%
 
 # 2. Calculate the Washington average and compare
 ```{r}
-stateAvg <- sum(countySciTotals$TotalMetStandard) / sum(countySciTotals$TotalExpectedToTest) * 100
+# stateAvg <- sum(countySciTotals$TotalMetStandard) / sum(countySciTotals$TotalExpectedToTest) * 100 : 왜 이게 아님???
+stateAvg <- countySciTotals %>%
+  summarise(stateAvg = mean(pct_met)) %>%
+  pull()
+  
 stateAvg
 # WashingtonRow might not be correct because of suppressed small groups.
 
 countySciTotals <- countySciTotals %>%
-  mutate(vs_state = if_else(pct_met > stateAvg, "Above state average",
-                                                "Below state average"))
+  # mutate(vs_state = if_else(pct_met > stateAvg, "Above state average",
+  #                                               "Below state average"))
+  mutate(vs_state = case_when(pct_met < stateAvg ~ "below",
+                                   pct_met > stateAvg ~ "above",
+                                   pct_met == stateAvg ~ "equal"
+                                   ))
 
 countySciTotals
 ```
