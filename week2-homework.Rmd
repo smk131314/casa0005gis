@@ -140,10 +140,10 @@ sci %>% filter(County == "Multiple") %>%
 
 # 2. Calculate the Washington average and compare
 ```{r}
-# stateAvg <- sum(countySciTotals$TotalMetStandard) / sum(countySciTotals$TotalExpectedToTest) * 100 : 왜 이게 아님???
-stateAvg <- countySciTotals %>%
-  summarise(stateAvg = mean(pct_met)) %>%
-  pull()
+stateAvg <- sum(countySciTotals$TotalMetStandard) / sum(countySciTotals$TotalExpectedToTest) * 100 # 왜 이게 아님??? >> 이게 맞음!!
+# stateAvg <- countySciTotals %>%
+#   summarise(stateAvg = mean(pct_met)) %>%
+#   pull()
   
 stateAvg
 # WashingtonRow might not be correct because of suppressed small groups.
