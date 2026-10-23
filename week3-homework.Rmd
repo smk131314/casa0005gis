@@ -14,3 +14,333 @@ For any country in the World produce descriptive statistics that show the differ
 WorldClim future projections
 Country outlines
 World city points
+
+
+# Plan
+Task : For any country in the World produce descriptive statistics that show the difference in maximum temperature for key cities between SSP1 and SSP5 for the years 2081-2100, using any model and resolution.
+
+1. Collecting data:
+  * GCM (MPI-ESM1-2-HR & MRI-ESM2-0) : tx data
+  * wc2.1_2.5m_tmax_MPI-ESM1-2-HR_ssp126_2081-2100.tif ~ wc2.1_2.5m_tmax_MPI-ESM1-2-HR_ssp585_2081-2100.tif
+  Geom data:
+  * Country outlines (United Kingdom geopackage) : gadm41_GBR.gpkg
+  * World cities: World_Cities.csv
+ 
+2. Vector data loading
+3. Raster (GCM) data loading
+  Raster location with cities point
+** Sync coordiate reference systems (CRS)**
+4. Descriptive statistics
+  4.1 Data preparation
+  4.2 Histogram
+  4.3 Using more data
+  4.4 Histogram with ggplot
+  
+
+
+------
+
+# 2. Vector data loading
+```{r}
+library(sf) 
+library(here)
+st_layers("week3_data/gadm41_GBR.gpkg")
+
+library(sf)
+library(tidyverse)
+ukOutline <- st_read("week3_data/gadm41_GBR.gpkg", 
+                      layer='ADM_ADM_0') # select outline layer
+
+print(ukOutline) # to get Geodetic CRS:  WGS 84
+st_crs(ukOutline)$proj4string # to get proj4 string
+```
+
+# 2.1 Reprojecting CRS
+```{r}
+ukOutlinePROJECTED <- ukOutline %>%
+  st_transform(., 27700) # to EPSG:27700 OSGB36 / British National Grid -- United Kingdom Ordnance Survey
+
+print(ukOutlinePROJECTED)
+```
+
+# 3. Raster (GCM) data loading
+
+```{r}
+library(terra)
+mpi_ssp1<-terra::rast("week3_data/wc2.1_2.5m_tmax_MPI-ESM1-2-HR_ssp126_2081-2100.tif")
+# have a look at the raster layer mpi_ssp1
+mpi_ssp1
+
+# quick look data
+plot(mpi_ssp1)
+```
+
+# 3.1 Reproject raster
+```{r}
+# # set the proj 4 to a new object
+# 
+# pr1 <- terra::project(jan, "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+# plot(pr1)
+```
+
+# 3.1 list Data loading
+```{r}
+# look in our folder, find the files that end with .tif and
+library(fs)
+dir_info("week3_data/")
+
+
+library(tidyverse)
+listfiles<-dir_info("week3_data/") %>% # file list ending with .tif
+  filter(str_detect(path, ".tif")) %>%
+  dplyr::select(path)%>%
+  pull()
+
+#have a look at the file names
+listfiles
+
+ssp1 <- rast(listfiles[str_detect(listfiles, "ssp126")])
+ssp5 <- rast(listfiles[str_detect(listfiles, "ssp585")])
+
+# Rename layers with month name
+names(ssp1) <- month.abb
+names(ssp5) <- month.abb
+
+# ssp1
+ssp1['Jan'] # select data with layer name
+ssp1
+```
+
+# 3.2 Raster location
+```{r}
+library(sf)
+# Load cities data
+ukCities <- read_csv('week3_data/World_Cities.csv') %>%
+  clean_names() %>%
+  filter(fips_cntry == 'UK')
+
+# convert to sf and set correct CRS
+ukcitiesSf <- ukCities %>%
+  st_as_sf(coords = c("x", "y"), crs = 3857) %>%
+  st_transform(4326) # same as raster data
+
+
+
+# Extract the data from the Rasterstack for all points 
+ukCitySSP1 <- terra::extract(ssp1, vect(ukcitiesSf))
+ukCitySSP5 <- terra::extract(ssp5, vect(ukcitiesSf))
+
+# Add city name
+ukCitySSP1 <- ukCitySSP1 %>% 
+  as_tibble()%>% 
+  add_column(Site = ukCities$city_name, .before = "Jan")
+
+ukCitySSP5 <- ukCitySSP5 %>% 
+  as_tibble()%>% 
+  add_column(Site = ukCities$city_name, .before = "Jan")
+
+```
+
+
+# 4. Descriptive statistics
+  4.1 Data preparation
+  4.2 Histogram
+  4.3 Using more data
+  4.4 Histogram with ggplot
+
+```{r}
+LondonTempSSP1 <- ukCitySSP1 %>%
+  filter(Site=="London")
+LondonTempSSP1
+
+library(tidyverse)
+#define where you want the breaks in the historgram
+userbreak<-c(8,10,12,14,16,18,20,22,24,26)
+
+# remove the ID and site columns
+t<-LondonTempSSP1 %>%
+ dplyr::select(Jan:Dec)
+
+  hist((as.numeric(t)), 
+     breaks=userbreak,
+     col="red", 
+     main="Histogram of London Temperature", 
+     xlab="Temperature", 
+     ylab="Frequency")
+  
+histinfo <- as.numeric(t) %>%
+  as.numeric()%>%
+  hist(.)
+
+histinfo
+```
+# 4.3 Using more data (mapping)
+```{r}
+ukOutSIMPLE <- ukOutline %>%
+  st_simplify(., dTolerance = 1000) %>%
+  st_geometry()%>%
+  plot()
+
+# Check if same CRS
+print(ukOutline)
+#this works nicely for rasters
+crs(ssp1)
+
+ukTempSSP1 <- ukOutline %>%
+  # now crop our temp data to the extent
+  terra::crop(ssp1,.)
+
+# plot the output
+plot(ukTempSSP1)
+
+# mask with outline vector
+ukTempSSP1 <-terra::mask(ukTempSSP1, ukOutline)
+
+plot(ukTempSSP1)
+hist(ukTempSSP1[[3]], col="red", main ="March temperature")
+```
+
+# 4.4 Histogram with ggplot
+
+```{r}
+ggplot() +
+  # function from tidyterra
+  geom_spatraster(
+    # the raster 
+    data = ukTempSSP1,
+    # the layer within the raster
+    aes(fill = Mar)
+  )
+
+# chage to data frame
+ukTempSSP1df <- ukTempSSP1 %>%
+  as.data.frame()
+
+
+library(ggplot2)
+# set up the basic histogram
+gghist <- ggplot(ukTempSSP1df, 
+                 aes(x=Mar)) + 
+  geom_histogram(color="black", 
+                 fill="white")+
+  labs(title="Ggplot2 histogram of UK March temperatures", 
+       x="Temperature", 
+       y="Frequency")
+# add a vertical line to the hisogram showing mean tempearture
+gghist + geom_vline(aes(xintercept=mean(Mar, 
+                                        na.rm=TRUE)),
+            color="blue", 
+            linetype="dashed", 
+            size=1)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Make long data
+squishdata<- ukTempSSP1df %>%
+  pivot_longer(
+  cols = 1:12,
+  names_to = "Month",
+  values_to = "Temp"
+)
+
+# Then subset the data, selecting two months using filter() from dplyr
+twomonths <- squishdata %>%
+  # | = OR
+  filter(., Month=="Jan" | Month=="Jun")
+
+meantwomonths <- twomonths %>%
+  group_by(Month) %>%
+  summarise(mean=mean(Temp, na.rm=TRUE))
+
+meantwomonths
+
+
+ggplot(twomonths, aes(x=Temp, color=Month, fill=Month)) +
+  geom_histogram(position="identity", alpha=0.5)+
+  geom_vline(data=meantwomonths, 
+             aes(xintercept=mean, 
+                 color=Month),
+             linetype="dashed")+
+  labs(title="Ggplot2 histogram of UK Jan and Jun
+       temperatures",
+       x="Temperature",
+       y="Frequency")+
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+data_complete_cases <- squishdata %>%
+  drop_na()%>% 
+  mutate(Month = factor(Month, levels = c("Jan","Feb","Mar",
+                                          "Apr","May","Jun",
+                                          "Jul","Aug","Sep",
+                                          "Oct","Nov","Dec")))
+
+# Plot faceted histogram
+ggplot(data_complete_cases, aes(x=Temp, na.rm=TRUE))+
+  geom_histogram(color="black", binwidth = 5)+
+  labs(title="Ggplot2 faceted histogram of UK temperatures from SSP1", 
+       x="Temperature",
+       y="Frequency")+
+  facet_grid(Month ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+# Interactive table
+```{r}
+library(plotly)
+# split the data for plotly based on month
+
+jan <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jan")
+
+jun <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jun")
+
+# give axis titles
+x <- list (title = "Temperature")
+y <- list (title = "Frequency")
+
+# set the bin width
+xbinsno<-list(start=0, end=40, size = 2.5)
+
+# plot the histogram calling all the variables we just set
+ihist<-plot_ly(alpha = 0.6) %>%
+        add_histogram(x = jan$Temp,
+        xbins=xbinsno, name="January") %>%
+        add_histogram(x = jun$Temp,
+        xbins=xbinsno, name="June") %>% 
+        layout(barmode = "overlay", xaxis=x, yaxis=y)
+
+ihist
+```
+
+
+# Show difference between SSP1 and SSP5
+```{r}
+diff_rast <- ssp5 - ssp1            # SSP5 minus SSP1, month by month
+
+city_diff <- terra::extract(diff_rast, vect(ukcitiesSf)) %>%
+  select(-ID) %>%
+  bind_cols(city_name = vect(ukcitiesSf)$city_name, .) %>%
+  pivot_longer(-city_name, names_to = "month", values_to = "tmax_diff") %>%
+  mutate(month = factor(month, levels = month.abb))
+
+# descriptive statistics per city
+city_diff %>%
+  group_by(city_name) %>%
+  summarise(mean_diff   = mean(tmax_diff),
+            median_diff = median(tmax_diff),
+            min_diff    = min(tmax_diff),
+            max_diff    = max(tmax_diff),
+            sd_diff     = sd(tmax_diff))
+
+# quick visual
+ggplot(city_diff, aes(month, tmax_diff, group = city_name, colour = city_name)) +
+  geom_line() +
+  labs(y = "Tmax difference (°C), SSP5 − SSP1, 2081–2100")
+```
+
