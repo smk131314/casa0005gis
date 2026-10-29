@@ -1,0 +1,33 @@
+---
+title: "week4-homework"
+output: html_document
+---
+
+# Homework Task
+
+- Read in global gender inequality data.
+- Join the global gender inequality index to spatial data of the World, creating a new column of **difference in inequality between 2010 and 2019**.
+
+## Plan
+
+- Read data
+
+  - HDR25_Composite_indices_complete_time_series.csv
+
+  - World_Countries\_(Generalized)\_2173680399808997149.geojson
+
+- Join
+
+## Read data
+
+- Read csv file, Select `gii_2010` \~ `gii_2019` column.
+- Read geojson
+
+```{r}
+
+library(tidyverse)
+gii <- read_csv("week4_data/HDR25_Composite_indices_complete_time_series.csv",
+                   col_select = c(gii_2010, gii_2019))
+
+gii
+```
