@@ -14,20 +14,54 @@ output: html_document
 
   - HDR25_Composite_indices_complete_time_series.csv
 
-  - World_Countries\_(Generalized)\_2173680399808997149.geojson
+  - World_Countries_(Generalized)_8414823838130214587.gpkg
 
+- Select columns
 - Join
 
 ## Read data
 
-- Read csv file, Select `gii_2010` \~ `gii_2019` column.
-- Read geojson
+- Read csv file
+- Read world shape
 
 ```{r}
-
 library(tidyverse)
-gii <- read_csv("week4_data/HDR25_Composite_indices_complete_time_series.csv",
-                   col_select = c(gii_2010, gii_2019))
+library(sf)
 
-gii
+hdi <- read_csv("week4_data/HDR25_Composite_indices_complete_time_series.csv",
+                    locale = locale(encoding = "latin1"),
+                       na = " ", skip=0)
+
+
+hdi
+
+worldShape <- st_read("week4_data/World_Countries_(Generalized)_8414823838130214587.gpkg")
+```
+
+## Select columns
+- Select `iso3`, `country`, gii_2010` and `gii_2019` columns
+
+```{r}
+library(janitor)
+library(dplyr)
+library(countrycode)
+
+giiDiff <- hdi %>%
+  clean_names()%>%
+  select(iso3, country, gii_2019, gii_2010)%>%
+  mutate(difference=gii_2019-gii_2010)%>%
+  mutate(iso_code=countrycode(country, origin = 'country.name', destination = 'iso2c'))%>%
+  mutate(iso_code2=countrycode(iso3, origin ='iso3c', destination = 'iso2c'))
+
+```
+
+## Join
+
+```{r}
+joinData <- worldShape %>% 
+  clean_names() %>%
+  left_join(., 
+            giiDiff,
+            # change to "aff_iso" = "iso_code"
+            by = c("iso" = "iso_code"))
 ```
