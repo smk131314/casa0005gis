@@ -1,0 +1,412 @@
+---
+title: "week5-practical"
+output: html_document
+---
+
+# Plan
+
+**1. Downloading data:**
+
+For the hotels and airbnb figures
+
+- London borough MSOAs (shp)
+- Airbnbs (csv)
+- Hotels (shp)
+
+For the study area map
+
+- Outline of the UK (shp)
+- UK cities (shp)
+
+**2. Setting the CRS and filtering:**
+
+Our CRS for the Boroughs needs to be British national grid (BNG) Filter hotels from the OSM data Filter equivalent airbnbs (e.g. room_type == ‘Entire home/apt’ & availability_365 ==‘365’)
+
+**3. Joining and summing data**
+
+Join the Airbnbs to the MSOAs and sum (i.e. how many are in each MSOA) Join the Hotels to the MSOAs and sum
+
+**4. Making some maps**
+
+## 1. Data Loading : CRS and filter
+
+Spatial data - OSM - Airbnb - MSOAs
+
+```{r}
+library(sf)
+library(tidyverse)
+
+# OSM data
+osm <- st_read("data/prac5_data/greater-london-261113-free.shp/gis_osm_pois_free_1.shp") %>%
+  st_transform(., 27700) %>%
+  #select hotels only
+  filter(fclass == 'hotel')
+```
+
+```{r}
+# Airbnb data
+Airbnb <- read_csv("data/prac5_data/listings.csv") %>%
+  # longitude is considered x value here, latitude is y
+  st_as_sf(., coords = c("longitude", "latitude"), 
+                   crs = 4326) %>%
+    st_transform(., 27700)%>%
+    #select entire places that are available all year
+    filter(room_type == 'Entire home/apt' & availability_365 =='365')
+
+
+#London Borough data is already in 277000
+Londonborough <- st_read("data/prac5_data/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")%>%
+  st_transform(., 27700)
+```
+
+Next, let’s load the data needed for our study area map:
+
+1.  World cities, filtering for Birmingham, London and Edinburgh
+2.  An outline of the UK
+
+```{r}
+# load world cities
+Worldcities <- st_read("data/prac5_data/World_Cities/World_Cities.shp") %>%
+  st_transform(., 27700)
+```
+
+```{r}
+# filter based on key cities
+Worldcities_uk_key_cities <- Worldcities %>%
+  filter(CNTRY_NAME=='United Kingdom'&
+           Worldcities$CITY_NAME=='Birmingham'|
+           Worldcities$CITY_NAME=='London'|
+           Worldcities$CITY_NAME=='Edinburgh')
+
+# load UK outline
+UK_outline <- st_read("data/prac5_data/gadm41_GBR_shp/gadm41_GBR_0.shp")%>%
+  st_transform(., 27700)
+```
+
+## 2. Join and sum
+
+**Warning** `st_join()`NA data count 문제 있음!! 주의!! basically left_join() 임.
+Exam 에서는 DO NOT USE `st_join()`!!! >> `st_intersects()` , `st_contains()`
+
+The output will be a large dataset where:
+
+- Each hotel will be a new row
+- It will retain the attributes of the hotel data but also append the attribute of the borough
+- `st_join()` defaults to a left join, so in this case the borough data is the left dataset and all the right data has been appended to it. If the left data (borough) had no matches (so no hotels) they would still appear in the final dataset. The default argument for this is st_intersects but we will explore this more next week.
+
+```{r}
+Hotels <-  st_join(Londonborough, osm)
+
+Airbnbs <-  st_join(Londonborough, Airbnb)
+
+head(Hotels)
+```
+At the moment each hotel/airbnbs is a row and has the borough data appended. However what we actually want is a row per borough and the count of the number of hotels/airbnbs. We can do this using group_by(), which is always followed by summarise():
+
+- `group_by()` creates temporary groups, if you were to print the data it would look the same as before just with the number of groups specified
+- `summarise()` takes the groups and provides a summary, here a count per group.
+```{r}
+Hotels_sum <- Hotels %>%
+  # we need to list the columns we want to keep in the summarise
+  group_by(., GSS_CODE, NAME)%>%
+  # for each group count the number of rows and store in a column called accomodation count.
+  summarise(`Accomodation count` = n())
+
+Airbnb_sum <- Airbnbs %>%
+  group_by(., GSS_CODE, NAME)%>%
+  summarise(`Accomodation count` = n())
+```
+Left_join 문제점!! NA data's count 를 1 로 침.
+```{r}
+# the st_join data = 0 Hotels
+Hotels %>%
+  filter(NAME=="Bexley")
+```
+```{r}
+# the group by and summarise data = 1 Hotel!
+Hotels_sum %>%
+  filter(NAME=="Bexley")
+
+```
+So how do we fix this?
+
+We can use a topological relationship. Here, the first data set (A) dictates the length (e.g. first data set boroughs then 33 rows returned)
+There are many to choose from, here each tick denotes the relations that apply to the polygons. Note, that in several cases multiple topological relations would work.:
+
+Common ones to focus on include:
+
+- `st_intersects(A, B)` - Do A (boroughs) touch or overlap with B (OSM).
+  - Returns a list of boroughs (33 rows) and in each borough a list of hotels
+- `st_contains(A, B)` - Does A (boroughs) contain B (OSM)
+  - Returns a list of boroughs (33 rows) and in each borough a list of hotels
+- `st_within(A, B)` - Is A (boroughs) inside B (OSM). This is asking are boroughs inside hotels
+  -Returns a list of boroughs that are inside hotels, this produces a result of 0. If we flip it we get a result but it will be the length of the hotels (e.g.   st_within(OSM, Londonborough)). Note, st_within(A, B) == st_contains(B, A)
+
+```{r}
+Hotels_example <-st_contains(Londonborough, osm)
+
+Hotels_example
+```
+The result is 33 rows! If you have used a graphic user interface GIS before, this is the same as select by location (e.g. select by location in QGIS), and as using filter from dplyr is the same as select by attribute.
+
+Now, we take the length of that list per borough.
+```{r}
+Accomodation_contained <- Londonborough%>%
+  mutate(hotels_n = lengths(st_contains(., osm)))%>%
+  mutate(airbnbs_n = lengths(st_contains(., Airbnbs)))
+```
+Confirm with 
+```{r}
+# the group by and summarise data = 1 Hotel!
+Accomodation_contained %>%
+  filter(NAME=="Bexley")
+```
+### Key advice
+When to use st_join() or a topological relationship
+
+`st_join()`
+
+- joins attributes of two spatial objects e.g. if i wanted to know what borough each hotel was in…the output here would be points (as the first dataset is point)
+```{r}
+Hotels2 <-  st_join(osm, Londonborough)
+```
+- It can easily join polygons or points of the same exact geometry (e.g. if i had data in two sf objects for London)
+```{r}
+London_data <-  st_join(London_borough_data1, London_borough_data2, join=st_equals)
+```
+**topological relationships**
+
+- Create counts of points in polygons but without knowing what borough each hotel is in. It returns the borough polygons with a count.
+
+
+## 3. Mapping
+
+```{r}
+# When installing tmap make sure to install the development version:
+# remotes::install_github("r-tmap/tmap")
+```
+Go back to my original map plan drawing. Think of each section (A), (B), study area and legend as a quadrant. For each quadrant we need to make an object…Our first object for mapping hotels is below.
+
+`tmap` works on the principle of:
+
+- loading your shape object with `tm_shape()` (here sf object, but it could be a raster)
+- setting the map layer (e.g. polygons (`tm_polygons()`), symbols (`tm_symbols()`),raster (`tm_raster()`), text (`tm_text()`), lines (`tm_lines()`) etc).
+- applying a derived function (e.g. border (`tm_borders()`), fill (`tm_fill()`), markers (`tm_markers()`).
+
+
+For example...
+```{r}
+library(tmap)
+
+# change to "view" for an interactive map
+tmap_mode("plot")
+```
+```{r}
+# set the shape
+tm1 <- tm_shape(Accomodation_contained) + 
+  # set the map layer
+  # try changing this to tm_symbols()
+  # tm_symbols("hotels_n",
+  tm_polygons("hotels_n",
+              col = "black", lwd=0.5, lty="dashed",)
+
+# plot the map
+tm1
+```
+Here, where we have map layer (e.g tm_polyons()) the derived function (e.g. border colour) is within the map layer function.if we didn’t have the map layer and just wanted to borders…
+```{r}
+tm_no_map_layer <- tm_shape(Accomodation_contained) + 
+  # there is no tm_polygons() if we just want the map with no spatial data
+  tm_borders(col = "darkblue")
+
+tm_no_map_layer
+```
+
+Let’s add in some more information to our map.
+```{r}
+tmap_mode('plot')
+```
+
+```{r}
+# plot each map
+tm1 <- tm_shape(Accomodation_contained) + 
+  tm_polygons(fill ="hotels_n",
+              col = "black", 
+              lwd =0.5,
+              lty="dashed",
+              fill.chart = tm_chart_violin(),   # fill_chart() produces a summary of the mapped data with a violin plot, there are many                                                      options see the tmap chart vigette
+              # above this was the same as before
+              fill.scale = tm_scale_intervals(  # tm_scale_intervals() - used for numerical data
+                values="brewer.bu_pu",          # the values to use to style the map, here it’s blue from the colour brewer list. There are                                                   a number of options here. See the next code chunk.
+                n=5,                            # n - the number of breaks to have
+                style="jenks"))                 # style - how to decide where to make the breaks. We have a lot of choice for this. See the                                                   interval scale reference. Jenks looks for the natural breaks in the data and is often used.
+
+tm1
+```
+To see all available colour options run the following code. Find an appropriate colour scheme and use the name in the values argument in the code above (replacing brewer.bu_pu)
+
+```{r}
+library(colorblindcheck)
+cols4all::c4a_gui()
+```
+
+### Complete map
+Before we progress we need to set up our breaks to be consistent across the two datasets, otherwise our maps will not be comparable. First of all let’s see which dataset has the greatest range
+```{r}
+library(dplyr)
+library(sf)
+
+stats <- Accomodation_contained %>%
+  st_drop_geometry() %>%
+  dplyr::select(hotels_n, airbnbs_n) %>%
+  summarise(across(everything(), list(
+    min = min,
+    max = max,
+    mean = mean,
+    median = median,
+    sd = sd
+  )))
+```
+
+As the Airbnbs have the greatest range we will use that to generate our breaks and apply them to both datasets.
+```{r}
+library(classInt)
+
+# Get Jenks breaks for 5 classes
+breaks <- Accomodation_contained%>%
+  st_drop_geometry()%>%
+  #need a numeric vector not a dataframe or tibble
+  pull(airbnbs_n) %>%             
+  classIntervals(., n = 5, style = "jenks")
+  
+breaks$brks
+```
+
+Not let’s make the maps for Hotels and Airbnbs as per the original plan. Because we have our data of interest in two separate we have a few options:
+
+1. Make a tmap object for each dataset (i.e. the same as above but now for airbnb)
+2. Use a facet map - this allows small maps for each group (here the group is airbnb or hotel)
+Let’s set up the facets..
+```{r}
+tm1 <- tm_shape(Accomodation_contained) +
+    tm_polygons(
+      fill = c("hotels_n", "airbnbs_n"),
+      fill.scale = tm_scale_intervals(values = "brewer.blues", breaks=breaks$brks),
+      # set the legend
+      fill.legend = tm_legend(title="Accomodation count",
+                              title.size=0.85,
+                              size=0.8,
+                              # plot outside of the main map
+                              #explained below
+                              position=tm_pos_out("right", 
+                                                  "center",
+                                                  pos.v = "center")),
+      # all facets share the same legend
+      fill.free = FALSE)+
+  # make 2 rows for the facets
+  tm_facets(nrow=2)
+
+tm1
+```
+Here, we’ve set the position of the legend to be outside the main plot tm_pos_out() the arguments that follow set where to place the legend:
+
+- right = in the area to the right side of the plot (each map is a 3x3 grid or possible area)
+- center = in the center [adjusted to the center] of the right “column”
+- `pos.v = "center"` = in the middle of the column (not top of bottom)
+The vertical (pos.v) and horizontal (pos.h) positions can also be set numerically where in relation to the top left hand corner of the object you are placing.
+
+0 = left (pos.h) or bottom (pos.v) 1 = right (pos.h) or top (pos.v)
+
+```
+Note, if we include a chart here it will combine the data into a single plot. So we could either:
+
+separate out our facets into individual tmap objects with a chart
+make separate charts with ggplot2 and add them onto the map as objects later.
+```
+For now, we need to:
+
+- Change the labels (tm_layout())
+- Add a compass (tm_compass())
+- Add a scalebar (tm_scalebar())
+- Add a credit to OSM/Airbnb (tm_credits())
+Note, when writing this practical i found an issue with the new version of tmap that meant the third item would not plot. See my minimal worked example on the issue tab.
+
+Then we can save the map (tm_save()). When making position adjustments always check the saved version as this will differ to what you see in R.
+```{r}
+# change headings or remove
+
+tm2 <- tm1+
+  tm_layout(panel.labels=c("Hotels", "Airbnb"),
+            panel.show = TRUE
+            #panel.label.bg.color = "transparent",
+            )+
+  
+  tm_compass(type= "arrow",
+            size=1.8, 
+            position = tm_pos_out("right", 
+                                  "center",
+                                  pos.h= -0.05,
+                                  pos.v =0.72))+
+  tm_scalebar(text.size = 0.7,
+              width=10,
+              breaks=c(0,10,20),
+              position = tm_pos_out("right",
+                                    "center", 
+                                    pos.h=0.075,
+                                    pos.v = 0.68))+
+  # we could use tm_credits to place sub-titles like (A) or (B)
+  # on the map.
+  tm_credits("(c) OpenStreetMap contrbutors and Air b n b",
+             size=0.6,
+             position = tm_pos_out("center",
+                                   "bottom",
+                                   pos.v = 1.5,
+                                   pos.h=-0.02))
+
+tm2
+```
+```{r}
+tmap_save(tm2, "data/prac5_data/1_facet.png", width = 8, height = 6, units="in", dpi = 300)
+```
+
+### Study area
+We want to add an “inset” map for our study area - this is just a map on our map
+
+If we do a quick thematic map (qtm()) of our study outline we see that Scottish islands make it appear off centre. We use a bounding box to clip (cookie cutter) or shape.
+
+```{r}
+qtm(UK_outline)
+```
+Go to www.bboxfinder.com
+
+On the left hand side you can select your CRS (here, British national grid, 27700). This will load a new tab at the bottom (like tabs in a spreadsheet)
+Click on the 27700 tab, draw a box and copy the coordinates
+Use st_crop() to clip the UK geometry to our box.
+
+```{r}
+newbb <- c(xmin=-296000, ymin=5408, xmax=655696, ymax=1000000)
+  
+UK_outlinecrop <- UK_outline$geometry %>%
+  st_crop(., newbb)
+```
+
+To add layers to an individual map we add another geometry, here we have out UK outline (tm_polygons) then add our cities (tm_symbols) on top of the polygons.
+
+```{r}
+tm3 <- tm_shape(UK_outlinecrop)+ 
+  tm_polygons(col="darkslategray1")+
+    tm_layout(frame=FALSE)+
+  tm_shape(Worldcities2) +
+    #adds the city points
+    tm_symbols(shape=20,
+               fill = "orange",
+               #outline colour
+               col="black",
+               size=0.8)+
+        #add the city labels, x and y move the label around the point
+    tm_text("CITY_NAME", xmod=-1, ymod=-0.5)
+
+
+tm3
+```
+
