@@ -1,0 +1,32 @@
+---
+title: "week5-homework"
+output: html_document
+---
+
+Extened from week4 homework...
+
+# Map
+```{r}
+library(tmap)
+# Set plot mode
+tmap_mode("plot")
+```
+```{r}
+map <- tm_shape(joinData) +
+  tm_polygons(
+    fill = "difference",
+    fill.scale = tm_scale_intervals(
+      style = "pretty",
+      midpoint = 0,
+      values = "-brewer.rd_bu",
+      value.na = "grey85",
+      label.na = "No data"
+    ),
+    fill.legend = tm_legend(title = "GII change\n(2019 - 2010)"),
+    col = "white", lwd = 0.2
+  ) +
+  tm_title("Change in Gender Inequality Index, 2010–2019") +
+  tm_layout(frame = FALSE, legend.outside = TRUE)
+
+map
+```
