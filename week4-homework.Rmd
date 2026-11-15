@@ -28,14 +28,14 @@ output: html_document
 library(tidyverse)
 library(sf)
 
-hdi <- read_csv("week4_data/HDR25_Composite_indices_complete_time_series.csv",
+hdi <- read_csv("data/week4_data/HDR25_Composite_indices_complete_time_series.csv",
                     locale = locale(encoding = "latin1"),
                        na = " ", skip=0)
 
 
 hdi
 
-worldShape <- st_read("week4_data/World_Countries_(Generalized)_8414823838130214587.gpkg")
+worldShape <- st_read("data/week4_data/World_Countries_(Generalized)_8414823838130214587.gpkg")
 ```
 
 ## Select columns

@@ -80,7 +80,7 @@ df[["column1"]]
 
 
 # 2.5 Reading data into R
-LondonDataOSK<- read.csv("prac2_data/LondonData.csv", 
+LondonDataOSK<- read.csv("data/prac2_data/LondonData.csv", 
                          header = TRUE, 
                          sep = ",",  
                          encoding = "latin1")
@@ -260,10 +260,10 @@ library(sf)
 
 # this will take a few minutes
 # geojson in local folder
-# EW <- st_read("prac2_data/LAD_Dec_2015_FCB_GB.geojson")
+# EW <- st_read("data/prac2_data/LAD_Dec_2015_FCB_GB.geojson")
 
 # shapefile in local folder
-EW <- st_read("prac2_data/LAD_Dec_2015_FCB_GB.shp")
+EW <- st_read("data/prac2_data/LAD_Dec_2015_FCB_GB.shp")
 
 LondonMap<- EW %>%
   filter(str_detect(lad15cd, "^E09"))

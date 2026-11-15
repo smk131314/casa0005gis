@@ -44,11 +44,11 @@ Task : For any country in the World produce descriptive statistics that show the
 ```{r}
 library(sf) 
 library(here)
-st_layers("week3_data/gadm41_GBR.gpkg")
+st_layers("data/week3_data/gadm41_GBR.gpkg")
 
 library(sf)
 library(tidyverse)
-ukOutline <- st_read("week3_data/gadm41_GBR.gpkg", 
+ukOutline <- st_read("data/week3_data/gadm41_GBR.gpkg", 
                       layer='ADM_ADM_0') # select outline layer
 
 print(ukOutline) # to get Geodetic CRS:  WGS 84
@@ -67,7 +67,7 @@ print(ukOutlinePROJECTED)
 
 ```{r}
 library(terra)
-mpi_ssp1<-terra::rast("week3_data/wc2.1_2.5m_tmax_MPI-ESM1-2-HR_ssp126_2081-2100.tif")
+mpi_ssp1<-terra::rast("data/week3_data/wc2.1_2.5m_tmax_MPI-ESM1-2-HR_ssp126_2081-2100.tif")
 # have a look at the raster layer mpi_ssp1
 mpi_ssp1
 
@@ -87,11 +87,11 @@ plot(mpi_ssp1)
 ```{r}
 # look in our folder, find the files that end with .tif and
 library(fs)
-dir_info("week3_data/")
+dir_info("data/week3_data/")
 
 
 library(tidyverse)
-listfiles<-dir_info("week3_data/") %>% # file list ending with .tif
+listfiles<-dir_info("data/week3_data/") %>% # file list ending with .tif
   filter(str_detect(path, ".tif")) %>%
   dplyr::select(path)%>%
   pull()
@@ -115,7 +115,7 @@ ssp1
 ```{r}
 library(sf)
 # Load cities data
-ukCities <- read_csv('week3_data/World_Cities.csv') %>%
+ukCities <- read_csv('data/week3_data/World_Cities.csv') %>%
   clean_names() %>%
   filter(fips_cntry == 'UK')
 

@@ -14,11 +14,11 @@ library(tmap)
 
 ```{r}
 # read
-report <- read_csv(here::here("week2_data", 
+report <- read_csv(here::here("data/week2_data", 
                    "Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv"),
                               na= "NULL")
 
-shape <- st_read(here::here("week2_data/Week 2 Homework boundaries-20261015",                                                     "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
+shape <- st_read(here::here("data/week2_data/Week 2 Homework boundaries-20261015",                                                     "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
 ```
 
 

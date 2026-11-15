@@ -26,13 +26,13 @@ The task is to join some non spatial data to some spatial data.
 
 ```{r}
 library(tidyverse)
-mycsv <- read_csv("homework1_data/edited-2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20.csv")
+mycsv <- read_csv("data/homework1_data/edited-2018-SA1-dataset-individual-part-3a-total-NZ_updated_16-7-20.csv")
 
 spec(mycsv)
 
 library(sf)
-# my data is within a homework1_data folder.
-shape <- st_read("homework1_data/statsnz-territorial-authority-2018-generalised-SHP/territorial-authority-2018-generalised.shp")
+# my data is within a data/homework1_data folder.
+shape <- st_read("data/homework1_data/statsnz-territorial-authority-2018-generalised-SHP/territorial-authority-2018-generalised.shp")
 ```
 
 ```{r}

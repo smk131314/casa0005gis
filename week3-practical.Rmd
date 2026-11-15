@@ -125,7 +125,7 @@ Until now, we’ve not really considered how our maps have been printed to the s
 ```{r, message=FALSE, cache=FALSE}
 library(sf) 
 library(here)
-st_layers("prac3_data/gadm41_AUS.gpkg")
+st_layers("data/prac3_data/gadm41_AUS.gpkg")
 ```
 
 1. Then read in the GeoPackage layer for the whole of Australia (layer ending in 0)
@@ -133,7 +133,7 @@ st_layers("prac3_data/gadm41_AUS.gpkg")
 ```{r, cache=FALSE}
 library(sf)
 library(tidyverse)
-Ausoutline <- st_read("prac3_data/gadm41_AUS.gpkg", 
+Ausoutline <- st_read("data/prac3_data/gadm41_AUS.gpkg", 
                       layer='ADM_ADM_0')
 ```
 
@@ -214,7 +214,7 @@ Or, more concisely...but remember this is only useful if there is no CRS when yo
 
 ```{r, cache=FALSE, warning=FALSE, message=FALSE, eval=TRUE}
 #or more concisely
-Ausoutline <- st_read("prac3_data/gadm41_AUS.gpkg", 
+Ausoutline <- st_read("data/prac3_data/gadm41_AUS.gpkg", 
                       layer='ADM_ADM_0') %>% 
   st_set_crs(4326)
 ```
@@ -276,7 +276,7 @@ We are going to use WorldClim data --- this is a dataset of free global climate 
 
 ```{r ,message=FALSE}
 library(terra)
-jan<-terra::rast("prac3_data/wc2.1_5m_tavg_01.tif")
+jan<-terra::rast("data/prac3_data/wc2.1_5m_tavg_01.tif")
 # have a look at the raster layer jan
 jan
 ```
@@ -322,14 +322,14 @@ Ok, projections over. Let's move forward with the practical...
 ```{r, cache=FALSE, warning=FALSE}
 # look in our folder, find the files that end with .tif and 
 library(fs)
-dir_info("prac3_data/") 
+dir_info("data/prac3_data/") 
 ```
 
 Essentially it just gets the details you would normally see in the file explorer..however, we can use this data with `dplyr` to select the data we actually want. Now be careful! the function `select()` exists both within the `dplyr` and `raster` package so to make sure you use the right one `dplyr::select` forces `select` from `dplyr`.
 
 ```{r}
 library(tidyverse)
-listfiles<-dir_info("prac3_data/") %>%
+listfiles<-dir_info("data/prac3_data/") %>%
   filter(str_detect(path, ".tif")) %>%
   dplyr::select(path)%>%
   pull()

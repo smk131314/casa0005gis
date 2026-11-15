@@ -17,7 +17,7 @@ You need **calculate the average percent of science students (in all) grades per
 library(readr)
 library(tidyverse)
 # skipping '', 'NA', 'NULL' entries : To avoid reading in our numeric data as text
-assessmentData <- read_csv('./week2_data/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv', 
+assessmentData <- read_csv('./data/week2_data/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv', 
                            locale = locale(encoding = "latin1"),
                            na = c("", "NA", "NULL"))
 
@@ -165,7 +165,7 @@ library(tmap)
 library(tmaptools)
 library(sf)
 
-washingtonMap <- st_read("./week2_data/Week 2 Homework boundaries-20261015/Washington_Counties_with_Natural_Shoreline___washsh_area.shp")
+washingtonMap <- st_read("./data/week2_data/Week 2 Homework boundaries-20261015/Washington_Counties_with_Natural_Shoreline___washsh_area.shp")
 names(washingtonMap)   # find the column holding the county name -> 'COUNTY'
 
 # plot it

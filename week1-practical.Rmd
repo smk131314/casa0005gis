@@ -12,12 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
-mycsv <- read_csv("prac1_data/fly_tipping_borough_edit.csv", skip=1)
+mycsv <- read_csv("data/prac1_data/fly_tipping_borough_edit.csv", skip=1)
 ```
 ```{r}
 library(sf)
-# my data is within a prac1_data folder.
-shape <- st_read("prac1_data/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
+# my data is within a data/prac1_data folder.
+shape <- st_read("data/prac1_data/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
 ```
 
 ```{r}
@@ -54,7 +54,7 @@ shape2 %>%
 # Export
 ```{r}
 shape%>% st_write(.,
-  "prac1_data/flytipping.gpkg",
+  "data/prac1_data/flytipping.gpkg",
   layer = "london_boroughs_fly_tipping",
   delete_dsn = TRUE
 )
@@ -63,7 +63,7 @@ shape%>% st_write(.,
 library(readr)
 library(RSQLite)
 
-con <- dbConnect(RSQLite::SQLite(),dbname="prac1_data/flytipping.gpkg")
+con <- dbConnect(RSQLite::SQLite(),dbname="data/prac1_data/flytipping.gpkg")
 
 con %>%
   dbListTables()
