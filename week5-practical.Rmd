@@ -546,3 +546,59 @@ Things to avoid:
 - Too much data presented on one map — be selective or plot multiple maps
 - Presented data is too small or too big — be critical about what you produce, it should be easy to read and understand
 - A map or figure without enough detail — **A reader should be able to understand a map or figure using the graphic in the figure/map and the caption alone!** A long caption is **fine** assuming it’s all relevant information.
+
+## (Extra) Interactive maps
+To make our map interactive we change tmap_mode() from plot to view..
+```{r}
+tmap_mode("view")
+
+tm_shape(Accomodation_contained) + 
+  tm_polygons("hotels_n") 
+```
+### Advanced interactive map
+But let’s take it a bit further so we can select our layers on an interactive map..Let’s set a few more things up:
+
+- Our CRS needs to be in WGS84
+
+```{r}
+Accomodation_containedWGS84 <- Accomodation_contained %>%
+  st_transform(., 4326)
+```
+Similar to our static maps we must:
+
+- First define the shape object
+- Then load the map layer (e.g. polygons)
+Here, we also set a group which links the polygon both the legend and button selection options.
+```{r}
+tmap_mode("view")
+
+# Build the map
+
+  # Airbnb layer
+map <-  tm_shape(Accomodation_containedWGS84) +
+        tm_polygons(fill="airbnbs_n",
+                    fill.scale = list(tm_scale_intervals(values = "brewer.blues", breaks=breaks$brks)),
+                    fill_alpha=0.5,
+                    col="white",
+                    lwd=2,
+                    lty="dashed",
+                    # select columns for popup
+                    popup.vars=c("airbnbs_n", "NAME"),
+                    group="Airbnb") + 
+        
+  # hotel layer  
+        tm_polygons(fill="hotels_n",
+                    fill.scale = list(tm_scale_intervals(values = "brewer.blues", breaks=breaks$brks)),
+                    fill_alpha=0.5,
+                    col="white",
+                    lwd=2,
+                    lty="dashed",
+                    popup.vars=c("hotels_n", "NAME"),
+                    group="Hotels")+
+    # basemap
+          tm_basemap(server = c("OpenStreetMap", "Thunderforest.Landscape"))
+        
+
+map
+```
+
