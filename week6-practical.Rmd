@@ -1,0 +1,167 @@
+---
+title: "week6-practical"
+output: html_document
+---
+
+## Learning outcomes
+By the end of this practical you should be able to:
+
+Describe and evaluate methods for analysing spatial patterns
+Execute data cleaning and manipulation appropriate for analysis
+Determine the locations of spatial clusters using point pattern analysis methods
+
+- familiar data 사용
+
+
+# Question here
+“For any given London Borough, are the Blue Plaques within that borough distributed randomly or do they exhibit some kind of dispersed or clustered pattern?”
+
+## Library
+```{r}
+#first library a few packages that we will use during the practical
+#note you may need to install them first...
+library(spatstat)
+library(here)
+library(sp)
+library(tmap)
+library(sf)
+library(tmaptools)
+```
+
+# 1. Set up data
+```{r}
+##First, get the London Borough Boundaries
+LondonBoroughs <- st_read("./data/prac1_data/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")
+
+
+```
+```{r}
+library(stringr)
+BoroughMap <- LondonBoroughs %>%
+  dplyr::filter(str_detect(GSS_CODE, "^E09"))%>%
+  st_transform(., 27700)
+
+qtm(BoroughMap)
+```
+```{r}
+summary(BoroughMap)
+```
+```{r}
+BluePlaques <- st_read("./data/prac6_data/open-plaques-london-2026-11-15.geojson") %>%
+  st_transform(.,27700)
+```
+
+```{r}
+summary(BluePlaques)
+```
+
+### plot the blue plaques in the city
+```{r}
+#plot the blue plaques in the city
+tmap_mode("plot")
+
+tm_shape(BoroughMap) +
+  tm_polygons(fill_alpha = 0.5)+
+tm_shape(BluePlaques) +
+  tm_dots(fill = "blue", size=0.1)
+```
+
+
+## 1.2. Data cleaning
+
+First we’ll remove any Plaques with the same grid reference as this will cause problems later on in the analysis..
+
+```{r}
+#remove duplicates
+library(tidyverse)
+
+library(sf)
+BluePlaques <- distinct(BluePlaques) # distinct() gives distinct records for which all attributes and geometries are distinct; 
+```
+
+## 1.3 Spatial subsetting
+Now just select the points inside London - thanks to Robin Lovelace for posting how to do this one, very useful! Here, the second operator is blank , , - this controls which attributes are kept, although I’d rather keep all of them and manipulate with the tidyverse.
+```{r}
+BluePlaquesSub <- BluePlaques[BoroughMap,]
+
+#plot the blue plaques in the city
+tmap_mode("plot")
+
+#check to see that they've been removed
+tm_shape(BoroughMap) +
+  tm_polygons(fill_alpha = 0.5)+
+tm_shape(BluePlaquesSub) +
+  tm_dots(fill = "blue", size=0.1)
+```
+When we spatial subset data like this there are different topological relations we can specify. The default is intersects, but we could also use BluePlaquesSub <- BluePlaques[BoroughMap, , op = st_within], with the operator or op set to st_within, to identify points completely within the borough outline. Any topological operator from the mapping week can be used here!
+
+We can also just use the function which will have the indices of where they intersect.
+```{r}
+# add sparse=false to get the complete matrix.
+# this is the same as select by location in QGIS
+# filter from dplyr is the same as select by attribute 
+intersect_indices <-st_intersects(BoroughMap, BluePlaques)
+```
+
+## 1.4.Spatial clipping
+`st_difference()`, `st_union()`, `st_intersection()`, `st_sym_difference()`
+
+## Key Advice
+Over the last two weeks we’ve seen:
+
+- Spatial joining
+- Spatial sub-setting
+- Spatial clipping
+Question….do i want to:
+
+- Select points or polygons in a polygon (Selecting data by location) = spatial sub-setting. This is just presence or absence within (or whatever function we use) an sf object.
+
+  - This could also be a topological function (e.g. week 5 - Hotels_example <-st_contains(Londonborough, OSM)). However, this can give us a geometric (geometry) intersection (e.g. a sf output of intersecting points), compared to just a binary presence or absence.
+
+- Determine where datasets overlap (or touch, or don’t overlap) and extract those parts = spatial clipping
+
+- Join two spatial datasets together = spatial joining, which can use spatial subsetting functions as the default is st_intersects(). This function joins spatial data.
+
+Finally,
+
+- Selecting data by attributes = filtering or selecting rows / columns with dplyr
+Most of these functions are not R specific, you will find them other software such as PostGIS (a database for spatial data).
+
+
+## 1.5 Study area
+chose Harrow
+```{r}
+#extract the borough
+
+# select by attribute
+Harrow <- BoroughMap %>%
+  filter(., NAME=="Harrow")
+
+#Check to see that the correct borough has been pulled out
+tm_shape(Harrow) +
+  tm_polygons(col = NA, fill_alpha = 0.5)
+```
+
+### clip plaques too
+
+```{r}
+#clip the data to our single borough
+BluePlaquesSub <- BluePlaques[Harrow,]
+
+
+
+#check that it's worked
+tm_shape(Harrow) +
+  tm_polygons(fill_alpha = 0.5)+
+tm_shape(BluePlaquesSub) +
+  tm_dots(fill = "blue", size=0.1)
+```
+We now have all of our data set up so that we can start the analysis using spatstat. The first thing we need to do is create an observation window for spatstat to carry out its analysis within — we’ll set this to the extent of the Harrow boundary
+
+```{r}
+#now set a window as the borough boundary
+window <- as.owin(Harrow)
+plot(window)
+```
+
+
